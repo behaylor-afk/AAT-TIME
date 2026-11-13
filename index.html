@@ -123,6 +123,8 @@ function setWeek(wk) {
   if (!A.emp || !A.data.entries[A.emp]) A.emp = A.crew.members[0].clock_id;
   A.msg = null; render();
 }
+/* Prevailing wage work types from the office's list; Laborer and Operator if the list has none. */
+function pwTypes() { return (A.cfg && A.cfg.pw_types && A.cfg.pw_types.length) ? A.cfg.pw_types : [{ code: 'laborer', name: 'Laborer' }, { code: 'operator', name: 'Operator' }]; }
 function projOptions(sel) {
   const ps = A.cfg.projects.filter(p => p.status !== 'closed' || p.code === sel);
   return '<option value="">Choose job</option>' + ps.map(p => `<option value="${esc(p.code)}" ${p.code === sel ? 'selected' : ''}>${esc(p.name)} (${esc(p.code)})</option>`).join('');
@@ -138,7 +140,7 @@ function checks() {
       const h = hrsVal(e.hours);
       if (Number.isNaN(h)) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': hours must be a number like 8 or 7.5.');
       if (h > 0 && !e.project) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose a job.');
-      if (h > 0 && isPW(e.hour_type) && !e.pw_category) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose Laborer or Operator.');
+      if (h > 0 && isPW(e.hour_type) && !e.pw_category) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose the prevailing wage work type.');
       byDay[e.date] = (byDay[e.date] || 0) + (h || 0);
     });
     Object.keys(byDay).forEach(d => { if (byDay[d] > 2400) problems.push(m.name + ', ' + md(d) + ': more than 24 hours.'); });
@@ -171,7 +173,7 @@ function render() {
           <select class="proj" data-i="${i}" data-k="project" aria-label="Job">${projOptions(e.project)}</select>
           <div class="row">
             <select data-i="${i}" data-k="hour_type" aria-label="Hour type">${TYPES.map(([v, l]) => `<option value="${v}" ${v === e.hour_type ? 'selected' : ''}>${l}</option>`).join('')}</select>
-            ${isPW(e.hour_type) ? `<select data-i="${i}" data-k="pw_category" aria-label="Laborer or Operator"><option value="">Laborer or Operator?</option><option value="laborer" ${e.pw_category === 'laborer' ? 'selected' : ''}>Laborer</option><option value="operator" ${e.pw_category === 'operator' ? 'selected' : ''}>Operator</option></select>` : ''}
+            ${isPW(e.hour_type) ? `<select data-i="${i}" data-k="pw_category" aria-label="Work type"><option value="">Work type?</option>${pwTypes().map(t => `<option value="${esc(t.code)}" ${t.code === e.pw_category ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : ''}
             <input class="hrs" data-i="${i}" data-k="hours" value="${esc(e.hours)}" inputmode="decimal" aria-label="Hours" placeholder="0">
             <button class="link" data-del="${i}" aria-label="Remove">✕</button>
           </div></div>`; }).join('')}
