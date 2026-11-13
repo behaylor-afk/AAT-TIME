@@ -214,22 +214,23 @@ function buildFile() {
     per_diem: Object.fromEntries(A.crew.members.map(m => [m.clock_id, pdList(m.clock_id).filter(d => d >= A.week && d <= addDays(A.week, 6)).sort()])) };
   return { n, file, text: JSON.stringify(file), name: 'AAT_time_' + A.crew.id + '_' + A.week + '_v' + n + '.json' };
 }
-/* Send straight to the office through the web app; confirm it arrived before saying so. */
+/* Send straight to the office through the web app, in small pieces that work from any phone browser.
+   The web app confirms when the whole week is saved; only then does the page say so. */
 async function sendLive() {
   const { n, file, text } = buildFile();
   A.sending = true; A.msg = { ok: true, html: 'Sending…' }; render();
   let ok = false;
   try {
-    const r = await fetch(CONFIG_URL, { method: 'POST', body: text, headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-    const j = await r.json(); ok = !!j.ok;
-  } catch (e) {
-    // The response could not be read here; send without reading it, then ask the web app whether it arrived.
-    try { await fetch(CONFIG_URL, { method: 'POST', body: text, mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' } }); } catch (e2) {}
-    for (let i = 0; i < 3 && !ok; i++) {
-      await new Promise(r => setTimeout(r, 1500));
-      try { ok = !!(await loadJsonp(CONFIG_URL + '?action=check&id=' + file.submission_id, 8000)).received; } catch (e3) {}
+    const b64 = btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const size = 1500, parts = Math.ceil(b64.length / size);
+    for (let i = 0; i < parts; i++) {
+      const url = CONFIG_URL + '?action=part&sid=' + file.submission_id + '&i=' + i + '&n=' + parts + '&d=' + b64.slice(i * size, (i + 1) * size);
+      let r = null;
+      for (let tries = 0; tries < 3 && !(r && r.ok); tries++) { try { r = await loadJsonp(url, 25000); } catch (e) { r = null; } }
+      if (!r || !r.ok) throw new Error((r && r.error) || 'no answer');
+      if (i === parts - 1) ok = !!r.complete;
     }
-  }
+  } catch (e) { ok = false; }
   A.sending = false;
   if (ok) {
     A.data.submits = n; A.data.last_sent = { at: file.sent_at, version: n }; save();
@@ -259,7 +260,7 @@ async function sendFile() {
 function send() { return CONFIG_URL ? sendLive() : sendFile(); }
 
 document.addEventListener('click', (ev) => {
-  const b = ev.target.closest('button'); if (!b) return;
+  const b = ev.target.closest('button'); if (!b || !A.data || b.id === 'prev' || b.id === 'next') return;
   const es = A.data.entries[A.emp];
   if (b.dataset.emp) { A.emp = b.dataset.emp; render(); window.scrollTo(0, 0); }
   else if (b.dataset.nav) { const i = A.crew.members.findIndex(x => x.clock_id === A.emp) + +b.dataset.nav; A.emp = A.crew.members[i].clock_id; render(); window.scrollTo(0, 0); }
@@ -291,8 +292,8 @@ document.addEventListener('input', (ev) => {
   const chip = document.querySelector('.chip.active b'); if (chip) chip.textContent = fmt(empTotal(A.emp));
 });
 document.addEventListener('focusout', (ev) => { if (ev.target.dataset && ev.target.dataset.k === 'hours') render(); });
-$('#prev').onclick = () => setWeek(addDays(A.week, -7));
-$('#next').onclick = () => setWeek(addDays(A.week, 7));
+$('#prev').onclick = () => { if (A.crew && !A.sending) setWeek(addDays(A.week, -7)); };
+$('#next').onclick = () => { if (A.crew && !A.sending) setWeek(addDays(A.week, 7)); };
 
 function loadJsonp(url, ms) {
   return new Promise((resolve, reject) => {
@@ -309,7 +310,7 @@ function loadJsonp(url, ms) {
 const valid = (c) => c && Array.isArray(c.crews) && Array.isArray(c.projects) && c.crews.length;
 async function loadConfig() {
   if (CONFIG_URL) {
-    try { const c = await loadJsonp(CONFIG_URL, 10000); if (valid(c)) { try { localStorage.setItem('aat-time:config', JSON.stringify(c)); } catch (e) {} return { cfg: c, source: 'live' }; } } catch (e) {}
+    try { const c = await loadJsonp(CONFIG_URL, 20000); if (valid(c)) { try { localStorage.setItem('aat-time:config', JSON.stringify(c)); } catch (e) {} return { cfg: c, source: 'live' }; } } catch (e) {}
     try { const c = JSON.parse(localStorage.getItem('aat-time:config') || 'null'); if (valid(c)) return { cfg: c, source: 'saved' }; } catch (e) {}
   }
   const c = await (await fetch('config.json', { cache: 'no-store' })).json();
