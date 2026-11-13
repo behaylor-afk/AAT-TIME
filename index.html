@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex, nofollow">
+<title>AAT Crew Time</title>
+<style>
+:root {
+  /* Phone-first: sticky header, one employee at a time, days listed down the page; TaskFlow palette. */
+  --color-bg: #FAF9F7; --color-surface: #FFFFFF; --color-surface-2: #F5F3F0;
+  --color-border: rgba(0,0,0,0.1); --color-border-strong: rgba(0,0,0,0.18);
+  --color-text-primary: #1a1915; --color-text-secondary: #6b6860; --color-text-tertiary: #9c9a96;
+  --color-accent: #BA7517; --color-accent-bg: #FAEEDA; --color-accent-mid: #EF9F27; --color-accent-text: #633806;
+  --color-danger: #E24B4A; --color-danger-bg: #FCEBEB; --color-success: #1D9E75; --color-success-bg: #E1F5EE;
+  --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1915; --color-surface: #252420; --color-surface-2: #2e2c28;
+    --color-border: rgba(255,255,255,0.1); --color-border-strong: rgba(255,255,255,0.18);
+    --color-text-primary: #f0ede8; --color-text-secondary: #a8a49e; --color-text-tertiary: #6b6860;
+    --color-accent: #FAC775; --color-accent-bg: #412402; --color-accent-text: #FAEEDA;
+    --color-danger: #F09595; --color-danger-bg: #501313; --color-success: #5DCAA5; --color-success-bg: #04342C;
+    color-scheme: dark;
+  }
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--color-bg); color: var(--color-text-primary); font: 15px/1.45 var(--font); -webkit-tap-highlight-color: transparent; }
+header { position: sticky; top: 0; z-index: 10; background: var(--color-surface); border-bottom: 0.5px solid var(--color-border); padding: .6rem 1rem; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.logo { width: 28px; height: 28px; border-radius: var(--radius-md); background: var(--color-accent-mid); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.title { font-weight: 600; flex: 1; min-width: 140px; line-height: 1.2; }
+.title small { display: block; font-weight: 400; color: var(--color-text-tertiary); font-size: .72rem; }
+html, body { overflow-x: hidden; }
+main { padding: .75rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; max-width: 760px; margin: 0 auto; }
+.card > * { min-width: 0; }
+.tablewrap { overflow-x: auto; }
+.card { background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: var(--radius-lg); padding: .8rem; display: grid; gap: .6rem; }
+h2 { margin: 0; font-size: .72rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: .08em; }
+h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; gap: .5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+button { font: inherit; font-size: .85rem; border-radius: var(--radius-md); padding: .5rem .85rem; border: 0.5px solid var(--color-border-strong); background: transparent; color: var(--color-text-secondary); cursor: pointer; min-height: 40px; }
+button.primary { background: var(--color-accent-mid); color: #fff; border-color: var(--color-accent-mid); font-weight: 600; }
+button.link { border: 0; min-height: 0; padding: .2rem .3rem; color: var(--color-accent); font-weight: 500; }
+button:disabled { opacity: .45; }
+select, input { font: inherit; font-size: 16px; color: var(--color-text-primary); background: var(--color-surface-2); border: 0.5px solid var(--color-border-strong); border-radius: var(--radius-md); padding: .45rem .55rem; min-width: 0; }
+select:focus, input:focus { outline: none; border-color: var(--color-accent-mid); background: var(--color-surface); }
+button:focus-visible { outline: 2px solid var(--color-accent-mid); outline-offset: 1px; }
+input.hrs { width: 70px; text-align: right; font-family: var(--font-mono); }
+.chips { display: flex; gap: .35rem; overflow-x: auto; padding-bottom: .2rem; }
+.chip { flex: 0 0 auto; border-radius: 999px; padding: .35rem .7rem; font-size: .8rem; border: 0.5px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text-secondary); min-height: 36px; }
+.chip.active { background: var(--color-accent-bg); border-color: var(--color-accent-mid); color: var(--color-accent-text); font-weight: 600; }
+.chip b { font-family: var(--font-mono); font-weight: 500; margin-left: .25rem; }
+.day { border-top: 0.5px solid var(--color-border); padding-top: .55rem; display: grid; gap: .4rem; }
+.day:first-of-type { border-top: 0; padding-top: 0; }
+.dayhead { display: flex; justify-content: space-between; font-size: .85rem; font-weight: 600; }
+.dayhead span { font-family: var(--font-mono); font-weight: 500; color: var(--color-text-secondary); }
+.entry { display: grid; gap: .35rem; background: var(--color-surface-2); border-radius: var(--radius-md); padding: .45rem; }
+.entry.bad { background: var(--color-danger-bg); }
+.entry select.proj { width: 100%; }
+.muted { color: var(--color-text-tertiary); font-size: .8rem; }
+p { margin: 0; font-size: .88rem; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td { padding: .35rem .4rem; border-bottom: 0.5px solid var(--color-border); text-align: left; }
+th { font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; color: var(--color-text-tertiary); font-weight: 600; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); }
+.notice { padding: .6rem .75rem; border-radius: var(--radius-md); font-size: .85rem; background: var(--color-accent-bg); color: var(--color-accent-text); }
+.notice.bad { background: var(--color-danger-bg); color: var(--color-text-primary); }
+.notice.good { background: var(--color-success-bg); color: var(--color-text-primary); }
+ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+button.seg { min-height: 32px; padding: .25rem .7rem; font-size: .8rem; }
+button.seg.on { background: var(--color-accent-bg); border-color: var(--color-accent-mid); color: var(--color-accent-text); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true">AT</div>
+  <div class="title" id="title">Crew time<small>All American Turf</small></div>
+  <div class="row"><button id="prev" aria-label="Previous week">◀</button><b id="weeklabel" style="font-family:var(--font-mono);font-size:.85rem"></b><button id="next" aria-label="Next week">▶</button></div>
+</header>
+<main id="main"><div class="card"><p class="muted">Loading…</p></div></main>
+<script>
+'use strict';
+/* Live job list: the Apps Script web app URL (ends in /exec). Leave blank to use config.json only. */
+const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbwjA6fqoviO5PVky1y0g_JlmZVaJGu_IfhgH6s6_4SIrXhdCARlEa0cHbKN_7okWPYSzQ/exec';
+const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const TYPES = [['regular', 'Regular'], ['overtime', 'Overtime'], ['travel', 'Travel'], ['prevailing', 'Prevailing wage'], ['prevailing_ot', 'Prevailing wage OT']];
+const isPW = (t) => t === 'prevailing' || t === 'prevailing_ot';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function todayStr() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function addDays(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function weekStart(s) { return addDays(s, -new Date(s + 'T00:00:00Z').getUTCDay()); }
+function md(s) { return s.slice(5, 7) + '/' + s.slice(8, 10); }
+function hrsVal(v) { const s = String(v == null ? '' : v).trim(); if (s === '') return 0; return /^\d{0,2}(\.\d{0,2})?$/.test(s) && s !== '.' ? Math.round(parseFloat(s) * 100) : NaN; }
+function fmt(h) { return (h / 100).toFixed(2); }
+
+const params = new URLSearchParams(location.search);
+const crewId = (params.get('crew') || location.hash.slice(1) || '').toLowerCase();
+const A = { cfg: null, crew: null, week: weekStart(todayStr()), data: null, emp: null, msg: null };
+
+function storeKey(wk) { return 'aat-time:' + crewId + ':' + wk; }
+function load(wk) {
+  try { const raw = localStorage.getItem(storeKey(wk)); if (raw) return JSON.parse(raw); } catch (e) {}
+  return null;
+}
+function save() { try { localStorage.setItem(storeKey(A.week), JSON.stringify(A.data)); } catch (e) {} }
+function freshWeek(wk) {
+  const entries = {};
+  A.crew.members.forEach(m => {
+    entries[m.clock_id] = [1, 2, 3, 4, 5].map(d => ({ date: addDays(wk, d), project: m.default_project || '', hour_type: 'regular', pw_category: '', hours: String(m.std_hours == null ? 8 : m.std_hours) }));
+  });
+  return { week: wk, entries, per_diem: {}, submits: 0 };
+}
+function setWeek(wk) {
+  A.week = wk; A.data = load(wk) || freshWeek(wk);
+  if (!A.emp || !A.data.entries[A.emp]) A.emp = A.crew.members[0].clock_id;
+  A.msg = null; render();
+}
+function projOptions(sel) {
+  const ps = A.cfg.projects.filter(p => p.status !== 'closed' || p.code === sel);
+  return '<option value="">Choose job</option>' + ps.map(p => `<option value="${esc(p.code)}" ${p.code === sel ? 'selected' : ''}>${esc(p.name)} (${esc(p.code)})</option>`).join('');
+}
+function pdList(id) { A.data.per_diem = A.data.per_diem || {}; return A.data.per_diem[id] || (A.data.per_diem[id] = []); }
+function empTotal(id) { return (A.data.entries[id] || []).reduce((n, e) => n + (hrsVal(e.hours) || 0), 0); }
+function checks() {
+  const problems = [];
+  A.crew.members.forEach(m => {
+    const es = A.data.entries[m.clock_id] || [];
+    const byDay = {};
+    es.forEach(e => {
+      const h = hrsVal(e.hours);
+      if (Number.isNaN(h)) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': hours must be a number like 8 or 7.5.');
+      if (h > 0 && !e.project) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose a job.');
+      if (h > 0 && isPW(e.hour_type) && !e.pw_category) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose Laborer or Operator.');
+      byDay[e.date] = (byDay[e.date] || 0) + (h || 0);
+    });
+    Object.keys(byDay).forEach(d => { if (byDay[d] > 2400) problems.push(m.name + ', ' + md(d) + ': more than 24 hours.'); });
+    pdList(m.clock_id).forEach(d => { if (!byDay[d]) problems.push(m.name + ', ' + md(d) + ': per diem marked Yes with no hours.'); });
+  });
+  return problems;
+}
+
+function render() {
+  $('#title').innerHTML = esc(A.crew.manager) + "'s crew<small>All American Turf · crew time</small>";
+  $('#weeklabel').textContent = md(A.week) + ' – ' + md(addDays(A.week, 6));
+  const m = A.crew.members.find(x => x.clock_id === A.emp);
+  const es = A.data.entries[A.emp] || [];
+  const idx = A.crew.members.indexOf(m);
+  const days = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(A.week, i));
+  const problems = checks();
+  const totals = {};
+  A.crew.members.forEach(x => { totals[x.clock_id] = { regular: 0, overtime: 0, travel: 0, prevailing: 0, prevailing_ot: 0 }; (A.data.entries[x.clock_id] || []).forEach(e => { const h = hrsVal(e.hours) || 0; totals[x.clock_id][e.hour_type] += h; }); });
+  $('#main').innerHTML = `
+  <section class="card">
+    <div class="chips" role="tablist">${A.crew.members.map(x => `<button class="chip ${x.clock_id === A.emp ? 'active' : ''}" data-emp="${esc(x.clock_id)}" role="tab" aria-selected="${x.clock_id === A.emp}">${esc(x.name)}<b>${fmt(empTotal(x.clock_id))}</b></button>`).join('')}</div>
+  </section>
+  <section class="card">
+    <div class="spread"><h3>${esc(m.name)}</h3><span class="muted">${fmt(empTotal(A.emp))} hours this week</span></div>
+    ${days.map((d, di) => { const list = es.map((e, i) => [e, i]).filter(([e]) => e.date === d); const dt = list.reduce((n, [e]) => n + (hrsVal(e.hours) || 0), 0); return `
+      <div class="day"><div class="dayhead">${DAY[di]} ${md(d)}<span>${dt ? fmt(dt) : ''}</span></div>
+      <div class="row"><span class="muted">Per diem</span>${['No', 'Yes'].map(v => `<button class="seg ${(pdList(A.emp).includes(d) ? 'Yes' : 'No') === v ? 'on' : ''}" data-pd="${d}" data-v="${v}" aria-pressed="${(pdList(A.emp).includes(d) ? 'Yes' : 'No') === v}">${v}</button>`).join('')}</div>
+      ${list.map(([e, i]) => { const h = hrsVal(e.hours); const bad = Number.isNaN(h) || (h > 0 && (!e.project || (isPW(e.hour_type) && !e.pw_category))); return `
+        <div class="entry ${bad ? 'bad' : ''}">
+          <select class="proj" data-i="${i}" data-k="project" aria-label="Job">${projOptions(e.project)}</select>
+          <div class="row">
+            <select data-i="${i}" data-k="hour_type" aria-label="Hour type">${TYPES.map(([v, l]) => `<option value="${v}" ${v === e.hour_type ? 'selected' : ''}>${l}</option>`).join('')}</select>
+            ${isPW(e.hour_type) ? `<select data-i="${i}" data-k="pw_category" aria-label="Laborer or Operator"><option value="">Laborer or Operator?</option><option value="laborer" ${e.pw_category === 'laborer' ? 'selected' : ''}>Laborer</option><option value="operator" ${e.pw_category === 'operator' ? 'selected' : ''}>Operator</option></select>` : ''}
+            <input class="hrs" data-i="${i}" data-k="hours" value="${esc(e.hours)}" inputmode="decimal" aria-label="Hours" placeholder="0">
+            <button class="link" data-del="${i}" aria-label="Remove">✕</button>
+          </div></div>`; }).join('')}
+      <div><button class="link" data-add="${d}">+ Add ${list.length ? 'another job or hour type' : 'hours'}</button></div></div>`; }).join('')}
+    <div class="spread">
+      <button data-nav="-1" ${idx === 0 ? 'disabled' : ''}>◀ ${idx > 0 ? esc(A.crew.members[idx - 1].name) : ''}</button>
+      <button data-nav="1" ${idx === A.crew.members.length - 1 ? 'disabled' : ''}>${idx < A.crew.members.length - 1 ? esc(A.crew.members[idx + 1].name) : ''} ▶</button>
+    </div>
+  </section>
+  <section class="card"><h2>Quick fill</h2>
+    <div class="row"><select id="filljob" aria-label="Job for the whole crew">${projOptions('')}</select><button data-fill="1">Put whole crew on this job</button></div>
+    <div class="row"><button data-copy="1">Copy ${esc(m.name)}'s week to the rest of the crew</button><button data-reset="1">Start this week over</button></div>
+    <p class="muted">Your entries are kept on this phone until you send them.</p>
+  </section>
+  <section class="card"><h2>Send the week</h2>
+    ${(() => { const cols = [['regular', 'Reg'], ['overtime', 'OT'], ['travel', 'Trav'], ['prevailing', 'PW'], ['prevailing_ot', 'PW OT']].filter(([k]) => A.crew.members.some(x => totals[x.clock_id][k]));
+      return `<div class="tablewrap"><table><thead><tr><th>Name</th>${cols.map(([, l]) => `<th class="num">${l}</th>`).join('')}<th class="num">Total</th><th class="num">Per diem</th></tr></thead><tbody>
+      ${A.crew.members.map(x => { const t = totals[x.clock_id]; return `<tr><td>${esc(x.name)}</td>${cols.map(([k]) => `<td class="num">${t[k] ? fmt(t[k]) : ''}</td>`).join('')}<td class="num"><b>${fmt(empTotal(x.clock_id))}</b></td><td class="num">${pdList(x.clock_id).length ? pdList(x.clock_id).length + ' d' : ''}</td></tr>`; }).join('')}
+      </tbody></table></div>`; })()}
+    <p class="muted">Enter overtime only when it's paid as overtime that day. The office works out overtime over 40 hours.</p>
+    ${problems.length ? `<div class="notice bad"><b>Fix before sending:</b><ul>${problems.slice(0, 12).map(p => '<li>' + esc(p) + '</li>').join('')}</ul></div>` : ''}
+    ${A.msg ? `<div class="notice ${A.msg.ok ? 'good' : 'bad'}">${A.msg.html}</div>` : ''}
+    <button class="primary" data-send="1" ${problems.length || A.sending ? 'disabled' : ''}>${A.sending ? 'Sending…' : 'Send week to the office'}</button>
+    ${CONFIG_URL ? `<button class="link" data-sendfile="1" ${problems.length ? 'disabled' : ''}>Send as a file instead</button>` : ''}
+    ${A.data.submits ? `<p class="muted">Sent ${A.data.submits} time${A.data.submits > 1 ? 's' : ''} this week. Sending again replaces the earlier copy.</p>` : ''}
+  </section>
+  <p class="muted" style="text-align:center">Job list ${A.source === 'live' ? 'live' : A.source === 'saved' ? 'from your last visit (no signal)' : 'from file'}, updated ${esc(new Date(A.cfg.generated_at).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</p>`;
+}
+
+function buildFile() {
+  const n = (A.data.submits || 0) + 1;
+  const entries = [];
+  A.crew.members.forEach(m => (A.data.entries[m.clock_id] || []).forEach(e => {
+    const h = hrsVal(e.hours);
+    if (h) entries.push({ clock_id: m.clock_id, date: e.date, project: e.project, hour_type: e.hour_type, pw_category: isPW(e.hour_type) ? e.pw_category : '', hours: h / 100 });
+  }));
+  const sid = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');
+  const file = { type: 'aat-crew-time', format: 1, crew: A.crew.id, manager: A.crew.manager, week: A.week, version: n, submission_id: sid, sent_at: new Date().toISOString(),
+    members: A.crew.members.map(m => m.clock_id), entries,
+    per_diem: Object.fromEntries(A.crew.members.map(m => [m.clock_id, pdList(m.clock_id).filter(d => d >= A.week && d <= addDays(A.week, 6)).sort()])) };
+  return { n, file, text: JSON.stringify(file), name: 'AAT_time_' + A.crew.id + '_' + A.week + '_v' + n + '.json' };
+}
+/* Send straight to the office through the web app; confirm it arrived before saying so. */
+async function sendLive() {
+  const { n, file, text } = buildFile();
+  A.sending = true; A.msg = { ok: true, html: 'Sending…' }; render();
+  let ok = false;
+  try {
+    const r = await fetch(CONFIG_URL, { method: 'POST', body: text, headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+    const j = await r.json(); ok = !!j.ok;
+  } catch (e) {
+    // The response could not be read here; send without reading it, then ask the web app whether it arrived.
+    try { await fetch(CONFIG_URL, { method: 'POST', body: text, mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' } }); } catch (e2) {}
+    for (let i = 0; i < 3 && !ok; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try { ok = !!(await loadJsonp(CONFIG_URL + '?action=check&id=' + file.submission_id, 8000)).received; } catch (e3) {}
+    }
+  }
+  A.sending = false;
+  if (ok) {
+    A.data.submits = n; A.data.last_sent = { at: file.sent_at, version: n }; save();
+    A.msg = { ok: true, html: '<b>Received by the office</b> ' + esc(new Date(file.sent_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })) + ' (copy ' + n + '). Sending again replaces it.' };
+  } else {
+    A.msg = { ok: false, html: 'Could not reach the office. Check your signal and tap Send again, or use <b>Send as a file instead</b>.' };
+  }
+  render();
+}
+async function sendFile() {
+  const { n, text, name } = buildFile();
+  const blob = new File([text], name, { type: 'application/json' });
+  let shared = false;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [blob] })) {
+      await navigator.share({ files: [blob], title: name, text: A.crew.manager + "'s crew time, week of " + md(A.week) });
+      shared = true;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') { A.msg = { ok: false, html: 'Not sent. Tap Send again when ready.' }; render(); return; } }
+  if (!shared) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  A.data.submits = n; save();
+  A.msg = { ok: true, html: shared ? 'Shared <b>' + esc(name) + '</b>. Make sure it went to Brian by email or text.' : 'Saved <b>' + esc(name) + '</b> to this device. Email or text that file to Brian.' };
+  render();
+}
+function send() { return CONFIG_URL ? sendLive() : sendFile(); }
+
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('button'); if (!b) return;
+  const es = A.data.entries[A.emp];
+  if (b.dataset.emp) { A.emp = b.dataset.emp; render(); window.scrollTo(0, 0); }
+  else if (b.dataset.nav) { const i = A.crew.members.findIndex(x => x.clock_id === A.emp) + +b.dataset.nav; A.emp = A.crew.members[i].clock_id; render(); window.scrollTo(0, 0); }
+  else if (b.dataset.add) { const same = es.filter(e => e.date === b.dataset.add); const last = same[same.length - 1] || es[es.length - 1]; es.push({ date: b.dataset.add, project: last ? last.project : '', hour_type: 'regular', pw_category: '', hours: '' }); save(); render(); }
+  else if (b.dataset.pd) { const l = pdList(A.emp); const i = l.indexOf(b.dataset.pd); if (b.dataset.v === 'Yes' && i < 0) l.push(b.dataset.pd); if (b.dataset.v === 'No' && i >= 0) l.splice(i, 1); save(); render(); }
+  else if (b.dataset.del) { es.splice(+b.dataset.del, 1); save(); render(); }
+  else if (b.dataset.fill) { const j = $('#filljob').value; if (!j) return; Object.values(A.data.entries).forEach(list => list.forEach(e => { e.project = j; })); save(); render(); }
+  else if (b.dataset.copy) {
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to replace everyone else\'s week'; return; }
+    A.crew.members.forEach(x => { if (x.clock_id !== A.emp) { A.data.entries[x.clock_id] = JSON.parse(JSON.stringify(es)); A.data.per_diem[x.clock_id] = pdList(A.emp).slice(); } }); save(); render();
+  }
+  else if (b.dataset.reset) {
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to clear this week'; return; }
+    const sub = A.data.submits; A.data = freshWeek(A.week); A.data.submits = sub; save(); render();
+  }
+  else if (b.dataset.send) send();
+  else if (b.dataset.sendfile) sendFile();
+});
+document.addEventListener('change', (ev) => {
+  const t = ev.target; if (t.dataset.i === undefined) return;
+  const e = A.data.entries[A.emp][+t.dataset.i];
+  e[t.dataset.k] = t.value;
+  if (t.dataset.k === 'hour_type' && !isPW(t.value)) e.pw_category = '';
+  save(); render();
+});
+document.addEventListener('input', (ev) => {
+  const t = ev.target; if (t.dataset.k !== 'hours') return;
+  A.data.entries[A.emp][+t.dataset.i].hours = t.value; save();
+  const chip = document.querySelector('.chip.active b'); if (chip) chip.textContent = fmt(empTotal(A.emp));
+});
+document.addEventListener('focusout', (ev) => { if (ev.target.dataset && ev.target.dataset.k === 'hours') render(); });
+$('#prev').onclick = () => setWeek(addDays(A.week, -7));
+$('#next').onclick = () => setWeek(addDays(A.week, 7));
+
+function loadJsonp(url, ms) {
+  return new Promise((resolve, reject) => {
+    const cb = '__aatcfg' + Date.now();
+    const el = document.createElement('script');
+    const done = (fn, v) => { clearTimeout(t); delete window[cb]; el.remove(); fn(v); };
+    const t = setTimeout(() => done(reject, new Error('timeout')), ms);
+    window[cb] = (data) => done(resolve, data);
+    el.onerror = () => done(reject, new Error('load'));
+    el.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb + '&t=' + Date.now();
+    document.head.appendChild(el);
+  });
+}
+const valid = (c) => c && Array.isArray(c.crews) && Array.isArray(c.projects) && c.crews.length;
+async function loadConfig() {
+  if (CONFIG_URL) {
+    try { const c = await loadJsonp(CONFIG_URL, 10000); if (valid(c)) { try { localStorage.setItem('aat-time:config', JSON.stringify(c)); } catch (e) {} return { cfg: c, source: 'live' }; } } catch (e) {}
+    try { const c = JSON.parse(localStorage.getItem('aat-time:config') || 'null'); if (valid(c)) return { cfg: c, source: 'saved' }; } catch (e) {}
+  }
+  const c = await (await fetch('config.json', { cache: 'no-store' })).json();
+  return { cfg: c, source: 'file' };
+}
+loadConfig().then(({ cfg, source }) => {
+  A.cfg = cfg; A.source = source;
+  A.crew = (cfg.crews || []).find(c => c.id === crewId);
+  if (!A.crew) { $('#main').innerHTML = '<div class="card"><p>This link is missing its crew. Use the link Brian sent you.</p></div>'; return; }
+  setWeek(A.week);
+}).catch(() => { $('#main').innerHTML = '<div class="card"><p>Could not load the crew list. Check your signal and reload the page.</p></div>'; });
+</script>
+</body>
+</html>

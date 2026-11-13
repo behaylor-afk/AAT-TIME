@@ -1,0 +1,72 @@
+{
+ "generated_at": "2026-11-13T19:30:00Z",
+ "crews": [
+  {
+   "id": "john",
+   "manager": "John Kuentz",
+   "members": [
+    {
+     "clock_id": "1001",
+     "name": "John Kuentz",
+     "default_project": "",
+     "std_hours": 8
+    },
+    {
+     "clock_id": "1002",
+     "name": "Jonathan",
+     "default_project": "",
+     "std_hours": 8
+    },
+    {
+     "clock_id": "1003",
+     "name": "Tim Bienz",
+     "default_project": "",
+     "std_hours": 8
+    },
+    {
+     "clock_id": "1004",
+     "name": "Zach",
+     "default_project": "",
+     "std_hours": 8
+    },
+    {
+     "clock_id": "1005",
+     "name": "Tim Reiser",
+     "default_project": "",
+     "std_hours": 8
+    }
+   ]
+  },
+  {
+   "id": "nate",
+   "manager": "Nate Johnston",
+   "members": [
+    {
+     "clock_id": "1006",
+     "name": "Nate Johnston",
+     "default_project": "",
+     "std_hours": 8
+    },
+    {
+     "clock_id": "1007",
+     "name": "Jesse",
+     "default_project": "",
+     "std_hours": 8
+    },
+    {
+     "clock_id": "1008",
+     "name": "Jeff",
+     "default_project": "",
+     "std_hours": 8
+    }
+   ]
+  }
+ ],
+ "projects": [
+  {
+   "code": "OVERHEAD",
+   "name": "Shop / overhead",
+   "state": ""
+  }
+ ]
+}
