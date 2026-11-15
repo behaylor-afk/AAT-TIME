@@ -203,7 +203,7 @@ function render() {
   <section class="card"><h2>Quick fill</h2>
     <div class="row"><select id="filljob" aria-label="Job for the whole crew">${projOptions('')}</select><button data-fill="1">Put whole crew on this job</button></div>
     <div class="row"><button data-copy="1">Copy ${esc(m.name)}'s week to the rest of the crew</button><button data-reset="1">Start this week over</button></div>
-    <p class="muted">Your entries are kept on this phone until you send them.</p>
+    <p class="muted">Your entries are kept on this device until you send them.</p>
   </section>
   <section class="card">
     <div class="chips" role="tablist">${A.crew.members.map(x => `<button class="chip ${x.clock_id === A.emp ? 'active' : ''}" data-emp="${esc(x.clock_id)}" role="tab" aria-selected="${x.clock_id === A.emp}">${esc(x.name)}<b>${fmt(empTotal(x.clock_id))}</b></button>`).join('')}</div>
@@ -365,5 +365,6 @@ loadConfig().then(({ cfg, source }) => {
   setWeek(A.week);
 }).catch(() => { $('#main').innerHTML = '<div class="card"><p>Could not load the crew list. Check your signal and reload the page.</p></div>'; });
 </script>
+<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v14</p>
 </body>
 </html>
