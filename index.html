@@ -67,6 +67,7 @@ input.hrs { width: 70px; text-align: right; font-family: var(--font-mono); }
 .muted { color: var(--color-text-tertiary); font-size: .8rem; }
 p { margin: 0; font-size: .88rem; }
 table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+tr.tot td { font-weight: 600; border-top: 1px solid var(--color-border-strong, #bbb); }
 th, td { padding: .35rem .4rem; border-bottom: 0.5px solid var(--color-border); text-align: left; }
 th { font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; color: var(--color-text-tertiary); font-weight: 600; }
 td.num, th.num { text-align: right; font-family: var(--font-mono); }
@@ -93,18 +94,42 @@ const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // Hours are entered as Regular, Travel or Prevailing wage. Overtime is worked out from hours over 40 in the week.
 const TYPES = [['regular', 'Regular'], ['travel', 'Travel'], ['prevailing', 'Prevailing wage']];
 const OLD_TYPES = { overtime: 'Overtime', prevailing_ot: 'Prevailing wage OT' };
-/* Week totals with overtime worked out: hours counted day by day; past 40, regular and travel become OT, prevailing wage becomes PW OT. */
+/* Week totals for one person.
+   entered: what was typed, by type (PW split by work type). calc: overtime worked out — hours counted day by day;
+   past 40, regular and travel become OT and prevailing wage becomes PW OT for the same work type. */
 function weekTotals(clock) {
-  const t = { regular: 0, overtime: 0, travel: 0, prevailing: 0, prevailing_ot: 0 };
+  const entered = {}, calc = {}, add = (o, k, h) => { if (h) o[k] = (o[k] || 0) + h; };
   let run = 0;
   (A.data.entries[clock] || []).map((e, i) => [e, i]).sort((a, b) => a[0].date.localeCompare(b[0].date) || a[1] - b[1]).forEach(([e]) => {
     const h = hrsVal(e.hours) || 0; if (h <= 0) return;
-    if (OLD_TYPES[e.hour_type]) { t[e.hour_type] += h; return; }
-    const kind = t[e.hour_type] === undefined ? 'regular' : e.hour_type;
+    if (OLD_TYPES[e.hour_type]) { add(entered, 'old|' + e.hour_type, h); add(calc, 'old|' + e.hour_type, h); return; }
+    const pw = e.hour_type === 'prevailing', cat = e.pw_category || '';
+    const base = pw ? 'pw|' + cat : (e.hour_type === 'travel' ? 'travel' : 'regular');
+    add(entered, base, h);
     const under = Math.max(0, Math.min(h, 4000 - run)); run += h;
-    t[kind] += under; t[kind === 'prevailing' ? 'prevailing_ot' : 'overtime'] += h - under;
+    add(calc, base, under); add(calc, pw ? 'pwot|' + cat : 'ot', h - under);
   });
-  return t;
+  return { entered, calc };
+}
+function colLabel(k) {
+  const [kind, cat] = k.split('|'); const n = (pwTypes().find(t => t.code === cat) || {}).name || cat || 'work type?';
+  return { regular: 'Regular', travel: 'Travel', ot: 'OT', pw: 'PW ' + n, pwot: 'PW OT ' + n, old: OLD_TYPES[cat] + ' (old)' }[kind] || k;
+}
+function colOrder(keys, withOT) {
+  const cats = pwTypes().map(t => t.code); keys.forEach(k => { const c = k.split('|')[1]; if (k.startsWith('pw') && !cats.includes(c)) cats.push(c); });
+  const order = ['regular', 'travel'].concat(withOT ? ['ot'] : []).concat(cats.flatMap(c => ['pw|' + c].concat(withOT ? ['pwot|' + c] : []))).concat(Object.keys(OLD_TYPES).map(t => 'old|' + t));
+  return order.filter(k => keys.includes(k));
+}
+function totalsTable(totals, key, withOT) {
+  const keys = [...new Set(A.crew.members.flatMap(x => Object.keys(totals[x.clock_id][key])))];
+  const cols = colOrder(keys, withOT);
+  const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+  const crew = {}; A.crew.members.forEach(x => Object.entries(totals[x.clock_id][key]).forEach(([k, v]) => { crew[k] = (crew[k] || 0) + v; }));
+  const pdAll = A.crew.members.reduce((n, x) => n + pdList(x.clock_id).length, 0);
+  return `<div class="tablewrap"><table><thead><tr><th>Name</th>${cols.map(k => `<th class="num">${esc(colLabel(k))}</th>`).join('')}<th class="num">Total</th>${withOT ? '' : '<th class="num">Per diem days</th>'}</tr></thead><tbody>
+    ${A.crew.members.map(x => { const t = totals[x.clock_id][key]; return `<tr><td>${esc(x.name)}</td>${cols.map(k => `<td class="num">${t[k] ? fmt(t[k]) : ''}</td>`).join('')}<td class="num"><b>${sum(t) ? fmt(sum(t)) : ''}</b></td>${withOT ? '' : `<td class="num">${pdList(x.clock_id).length || ''}</td>`}</tr>`; }).join('')}
+    <tr class="tot"><td>Crew total</td>${cols.map(k => `<td class="num">${crew[k] ? fmt(crew[k]) : ''}</td>`).join('')}<td class="num"><b>${fmt(sum(crew))}</b></td>${withOT ? '' : `<td class="num">${pdAll || ''}</td>`}</tr>
+  </tbody></table></div>`;
 }
 const isPW = (t) => t === 'prevailing' || t === 'prevailing_ot';
 const $ = (s) => document.querySelector(s);
@@ -175,6 +200,11 @@ function render() {
   const totals = {};
   A.crew.members.forEach(x => { totals[x.clock_id] = weekTotals(x.clock_id); });
   $('#main').innerHTML = `
+  <section class="card"><h2>Quick fill</h2>
+    <div class="row"><select id="filljob" aria-label="Job for the whole crew">${projOptions('')}</select><button data-fill="1">Put whole crew on this job</button></div>
+    <div class="row"><button data-copy="1">Copy ${esc(m.name)}'s week to the rest of the crew</button><button data-reset="1">Start this week over</button></div>
+    <p class="muted">Your entries are kept on this phone until you send them.</p>
+  </section>
   <section class="card">
     <div class="chips" role="tablist">${A.crew.members.map(x => `<button class="chip ${x.clock_id === A.emp ? 'active' : ''}" data-emp="${esc(x.clock_id)}" role="tab" aria-selected="${x.clock_id === A.emp}">${esc(x.name)}<b>${fmt(empTotal(x.clock_id))}</b></button>`).join('')}</div>
   </section>
@@ -198,17 +228,12 @@ function render() {
       <button data-nav="1" ${idx === A.crew.members.length - 1 ? 'disabled' : ''}>${idx < A.crew.members.length - 1 ? esc(A.crew.members[idx + 1].name) : ''} ▶</button>
     </div>
   </section>
-  <section class="card"><h2>Quick fill</h2>
-    <div class="row"><select id="filljob" aria-label="Job for the whole crew">${projOptions('')}</select><button data-fill="1">Put whole crew on this job</button></div>
-    <div class="row"><button data-copy="1">Copy ${esc(m.name)}'s week to the rest of the crew</button><button data-reset="1">Start this week over</button></div>
-    <p class="muted">Your entries are kept on this phone until you send them.</p>
-  </section>
   <section class="card"><h2>Send the week</h2>
-    ${(() => { const cols = [['regular', 'Reg'], ['overtime', 'OT'], ['travel', 'Trav'], ['prevailing', 'PW'], ['prevailing_ot', 'PW OT']].filter(([k]) => A.crew.members.some(x => totals[x.clock_id][k]));
-      return `<div class="tablewrap"><table><thead><tr><th>Name</th>${cols.map(([, l]) => `<th class="num">${l}</th>`).join('')}<th class="num">Total</th><th class="num">Per diem</th></tr></thead><tbody>
-      ${A.crew.members.map(x => { const t = totals[x.clock_id]; return `<tr><td>${esc(x.name)}</td>${cols.map(([k]) => `<td class="num">${t[k] ? fmt(t[k]) : ''}</td>`).join('')}<td class="num"><b>${fmt(empTotal(x.clock_id))}</b></td><td class="num">${pdList(x.clock_id).length ? pdList(x.clock_id).length + ' d' : ''}</td></tr>`; }).join('')}
-      </tbody></table></div>`; })()}
-    <p class="muted">Overtime is worked out automatically: hours past 40 in the week, counted day by day, become OT (or PW OT for prevailing wage hours).</p>
+    <h3>What you entered</h3>
+    ${totalsTable(totals, 'entered', false)}
+    <h3>Overtime worked out</h3>
+    <p class="muted">Hours are counted day by day. Past 40 in the week, regular and travel hours become OT, and prevailing wage hours become PW OT at the same work type's rate.</p>
+    ${totalsTable(totals, 'calc', true)}
     ${problems.length ? `<div class="notice bad"><b>Fix before sending:</b><ul>${problems.slice(0, 12).map(p => '<li>' + esc(p) + '</li>').join('')}</ul></div>` : ''}
     ${A.msg ? `<div class="notice ${A.msg.ok ? 'good' : 'bad'}">${A.msg.html}</div>` : ''}
     <button class="primary" data-send="1" ${problems.length || A.sending ? 'disabled' : ''}>${A.sending ? 'Sending…' : 'Send week to the office'}</button>
