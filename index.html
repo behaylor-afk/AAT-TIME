@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex, nofollow">
@@ -64,6 +64,10 @@ input.hrs { width: 70px; text-align: right; font-family: var(--font-mono); }
 .entry { display: grid; gap: .35rem; background: var(--color-surface-2); border-radius: var(--radius-md); padding: .45rem; }
 .entry.bad { background: var(--color-danger-bg); }
 .entry select.proj { width: 100%; }
+/* Entry fields match the Per diem buttons; filled-in fields show orange like a selected button. */
+.entry select, .entry input, #filljob { font-size: .8rem; min-height: 32px; padding: .25rem .5rem; background: var(--color-surface); }
+.entry input.hrs { width: 64px; }
+.entry select.set, .entry input.set { background: var(--color-accent-bg); border-color: var(--color-accent-mid); color: var(--color-accent-text); font-weight: 600; }
 .muted { color: var(--color-text-tertiary); font-size: .8rem; }
 p { margin: 0; font-size: .88rem; }
 table { width: 100%; border-collapse: collapse; font-size: .82rem; }
@@ -160,6 +164,8 @@ function freshWeek(wk) {
 }
 function setWeek(wk) {
   A.week = wk; A.data = load(wk) || freshWeek(wk);
+  // People added to the crew after this week was started on this device get an empty sheet.
+  A.crew.members.forEach(m => { if (!Array.isArray(A.data.entries[m.clock_id])) A.data.entries[m.clock_id] = []; });
   if (!A.emp || !A.data.entries[A.emp]) A.emp = A.crew.members[0].clock_id;
   A.msg = null; render();
 }
@@ -215,11 +221,11 @@ function render() {
       <div class="row"><span class="muted">Per diem</span>${['No', 'Yes'].map(v => `<button class="seg ${(pdList(A.emp).includes(d) ? 'Yes' : 'No') === v ? 'on' : ''}" data-pd="${d}" data-v="${v}" aria-pressed="${(pdList(A.emp).includes(d) ? 'Yes' : 'No') === v}">${v}</button>`).join('')}</div>
       ${list.map(([e, i]) => { const h = hrsVal(e.hours); const bad = Number.isNaN(h) || (h > 0 && (!e.project || (isPW(e.hour_type) && !e.pw_category))); return `
         <div class="entry ${bad ? 'bad' : ''}">
-          <select class="proj" data-i="${i}" data-k="project" aria-label="Job">${projOptions(e.project)}</select>
+          <select class="proj ${e.project ? 'set' : ''}" data-i="${i}" data-k="project" aria-label="Job">${projOptions(e.project)}</select>
           <div class="row">
-            <select data-i="${i}" data-k="hour_type" aria-label="Hour type">${TYPES.concat(OLD_TYPES[e.hour_type] ? [[e.hour_type, OLD_TYPES[e.hour_type]]] : []).map(([v, l]) => `<option value="${v}" ${v === e.hour_type ? 'selected' : ''}>${l}</option>`).join('')}</select>
-            ${isPW(e.hour_type) ? `<select data-i="${i}" data-k="pw_category" aria-label="Work type"><option value="">Work type?</option>${pwTypes().map(t => `<option value="${esc(t.code)}" ${t.code === e.pw_category ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : ''}
-            <input class="hrs" data-i="${i}" data-k="hours" value="${esc(e.hours)}" inputmode="decimal" aria-label="Hours" placeholder="0">
+            <select class="set" data-i="${i}" data-k="hour_type" aria-label="Hour type">${TYPES.concat(OLD_TYPES[e.hour_type] ? [[e.hour_type, OLD_TYPES[e.hour_type]]] : []).map(([v, l]) => `<option value="${v}" ${v === e.hour_type ? 'selected' : ''}>${l}</option>`).join('')}</select>
+            ${isPW(e.hour_type) ? `<select class="${e.pw_category ? 'set' : ''}" data-i="${i}" data-k="pw_category" aria-label="Work type"><option value="">Work type?</option>${pwTypes().map(t => `<option value="${esc(t.code)}" ${t.code === e.pw_category ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : ''}
+            <input class="hrs ${hrsVal(e.hours) > 0 ? 'set' : ''}" data-i="${i}" data-k="hours" value="${esc(e.hours)}" inputmode="decimal" aria-label="Hours" placeholder="0">
             <button class="link" data-del="${i}" aria-label="Remove">✕</button>
           </div></div>`; }).join('')}
       <div><button class="link" data-add="${d}">+ Add ${list.length ? 'another job or hour type' : 'hours'}</button></div></div>`; }).join('')}
@@ -364,7 +370,10 @@ loadConfig().then(({ cfg, source }) => {
   if (!A.crew) { $('#main').innerHTML = '<div class="card"><p>This link is missing its crew. Use the link Brian sent you.</p></div>'; return; }
   setWeek(A.week);
 }).catch(() => { $('#main').innerHTML = '<div class="card"><p>Could not load the crew list. Check your signal and reload the page.</p></div>'; });
+// Keep the orange "entered" look in step while typing or choosing.
+document.addEventListener('input', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
+document.addEventListener('change', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 </script>
-<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v14</p>
+<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v16</p>
 </body>
 </html>
