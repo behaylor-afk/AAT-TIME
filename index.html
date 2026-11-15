@@ -65,7 +65,7 @@ input.hrs { width: 70px; text-align: right; font-family: var(--font-mono); }
 .entry.bad { background: var(--color-danger-bg); }
 .entry select.proj { width: 100%; }
 /* Entry fields match the Per diem buttons; filled-in fields show orange like a selected button. */
-.entry select, .entry input, #filljob { font-size: .8rem; min-height: 32px; padding: .25rem .5rem; background: var(--color-surface); }
+.entry select, .entry input, #filljob, #copyfrom { font-size: .8rem; min-height: 32px; padding: .25rem .5rem; background: var(--color-surface); }
 .entry input.hrs { width: 64px; }
 .entry select.set, .entry input.set { background: var(--color-accent-bg); border-color: var(--color-accent-mid); color: var(--color-accent-text); font-weight: 600; }
 .muted { color: var(--color-text-tertiary); font-size: .8rem; }
@@ -208,7 +208,10 @@ function render() {
   $('#main').innerHTML = `
   <section class="card"><h2>Quick fill</h2>
     <div class="row"><select id="filljob" aria-label="Job for the whole crew">${projOptions('')}</select><button data-fill="1">Put whole crew on this job</button></div>
-    <div class="row"><button data-copy="1">Copy ${esc(m.name)}'s week to the rest of the crew</button><button data-reset="1">Start this week over</button></div>
+    ${(() => { const src = A.crew.members.filter(x => x.clock_id !== A.emp && empTotal(x.clock_id) > 0);
+      return src.length ? `<div class="row"><select id="copyfrom" aria-label="Copy hours from">${'<option value="">Copy hours from…</option>' + src.map(x => `<option value="${esc(x.clock_id)}">${esc(x.name)} (${fmt(empTotal(x.clock_id))} hrs)</option>`).join('')}</select><button data-copy="1">Copy into ${esc(m.name)}'s week</button></div>`
+        : '<p class="muted">Once someone else on the crew has hours entered, you can copy their week into this person\'s week here.</p>'; })()}
+    <div class="row"><button data-reset="1">Start this week over</button></div>
     <p class="muted">Your entries are kept on this device until you send them.</p>
   </section>
   <section class="card">
@@ -317,8 +320,9 @@ document.addEventListener('click', (ev) => {
   else if (b.dataset.del) { es.splice(+b.dataset.del, 1); save(); render(); }
   else if (b.dataset.fill) { const j = $('#filljob').value; if (!j) return; Object.values(A.data.entries).forEach(list => list.forEach(e => { e.project = j; })); save(); render(); }
   else if (b.dataset.copy) {
-    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to replace everyone else\'s week'; return; }
-    A.crew.members.forEach(x => { if (x.clock_id !== A.emp) { A.data.entries[x.clock_id] = JSON.parse(JSON.stringify(es)); A.data.per_diem[x.clock_id] = pdList(A.emp).slice(); } }); save(); render();
+    const from = $('#copyfrom').value; if (!from) { $('#copyfrom').focus(); return; }
+    if (empTotal(A.emp) > 0 && !b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to replace this week\'s hours'; return; }
+    A.data.entries[A.emp] = JSON.parse(JSON.stringify(A.data.entries[from] || [])); A.data.per_diem[A.emp] = pdList(from).slice(); save(); render();
   }
   else if (b.dataset.reset) {
     if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to clear this week'; return; }
@@ -374,6 +378,6 @@ loadConfig().then(({ cfg, source }) => {
 document.addEventListener('input', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 document.addEventListener('change', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 </script>
-<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v16</p>
+<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v17</p>
 </body>
 </html>
