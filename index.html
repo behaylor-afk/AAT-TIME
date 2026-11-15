@@ -90,7 +90,22 @@ button.seg.on { background: var(--color-accent-bg); border-color: var(--color-ac
 /* Live job list: the Apps Script web app URL (ends in /exec). Leave blank to use config.json only. */
 const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbwjA6fqoviO5PVky1y0g_JlmZVaJGu_IfhgH6s6_4SIrXhdCARlEa0cHbKN_7okWPYSzQ/exec';
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const TYPES = [['regular', 'Regular'], ['overtime', 'Overtime'], ['travel', 'Travel'], ['prevailing', 'Prevailing wage'], ['prevailing_ot', 'Prevailing wage OT']];
+// Hours are entered as Regular, Travel or Prevailing wage. Overtime is worked out from hours over 40 in the week.
+const TYPES = [['regular', 'Regular'], ['travel', 'Travel'], ['prevailing', 'Prevailing wage']];
+const OLD_TYPES = { overtime: 'Overtime', prevailing_ot: 'Prevailing wage OT' };
+/* Week totals with overtime worked out: hours counted day by day; past 40, regular and travel become OT, prevailing wage becomes PW OT. */
+function weekTotals(clock) {
+  const t = { regular: 0, overtime: 0, travel: 0, prevailing: 0, prevailing_ot: 0 };
+  let run = 0;
+  (A.data.entries[clock] || []).map((e, i) => [e, i]).sort((a, b) => a[0].date.localeCompare(b[0].date) || a[1] - b[1]).forEach(([e]) => {
+    const h = hrsVal(e.hours) || 0; if (h <= 0) return;
+    if (OLD_TYPES[e.hour_type]) { t[e.hour_type] += h; return; }
+    const kind = t[e.hour_type] === undefined ? 'regular' : e.hour_type;
+    const under = Math.max(0, Math.min(h, 4000 - run)); run += h;
+    t[kind] += under; t[kind === 'prevailing' ? 'prevailing_ot' : 'overtime'] += h - under;
+  });
+  return t;
+}
 const isPW = (t) => t === 'prevailing' || t === 'prevailing_ot';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -139,6 +154,7 @@ function checks() {
     es.forEach(e => {
       const h = hrsVal(e.hours);
       if (Number.isNaN(h)) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': hours must be a number like 8 or 7.5.');
+      if (h > 0 && OLD_TYPES[e.hour_type]) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': change ' + OLD_TYPES[e.hour_type] + ' to ' + (e.hour_type === 'prevailing_ot' ? 'Prevailing wage' : 'Regular') + '. Overtime is worked out automatically.');
       if (h > 0 && !e.project) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose a job.');
       if (h > 0 && isPW(e.hour_type) && !e.pw_category) problems.push(m.name + ', ' + DAY[new Date(e.date + 'T00:00:00Z').getUTCDay()] + ': choose the prevailing wage work type.');
       byDay[e.date] = (byDay[e.date] || 0) + (h || 0);
@@ -157,7 +173,7 @@ function render() {
   const days = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(A.week, i));
   const problems = checks();
   const totals = {};
-  A.crew.members.forEach(x => { totals[x.clock_id] = { regular: 0, overtime: 0, travel: 0, prevailing: 0, prevailing_ot: 0 }; (A.data.entries[x.clock_id] || []).forEach(e => { const h = hrsVal(e.hours) || 0; totals[x.clock_id][e.hour_type] += h; }); });
+  A.crew.members.forEach(x => { totals[x.clock_id] = weekTotals(x.clock_id); });
   $('#main').innerHTML = `
   <section class="card">
     <div class="chips" role="tablist">${A.crew.members.map(x => `<button class="chip ${x.clock_id === A.emp ? 'active' : ''}" data-emp="${esc(x.clock_id)}" role="tab" aria-selected="${x.clock_id === A.emp}">${esc(x.name)}<b>${fmt(empTotal(x.clock_id))}</b></button>`).join('')}</div>
@@ -171,7 +187,7 @@ function render() {
         <div class="entry ${bad ? 'bad' : ''}">
           <select class="proj" data-i="${i}" data-k="project" aria-label="Job">${projOptions(e.project)}</select>
           <div class="row">
-            <select data-i="${i}" data-k="hour_type" aria-label="Hour type">${TYPES.map(([v, l]) => `<option value="${v}" ${v === e.hour_type ? 'selected' : ''}>${l}</option>`).join('')}</select>
+            <select data-i="${i}" data-k="hour_type" aria-label="Hour type">${TYPES.concat(OLD_TYPES[e.hour_type] ? [[e.hour_type, OLD_TYPES[e.hour_type]]] : []).map(([v, l]) => `<option value="${v}" ${v === e.hour_type ? 'selected' : ''}>${l}</option>`).join('')}</select>
             ${isPW(e.hour_type) ? `<select data-i="${i}" data-k="pw_category" aria-label="Work type"><option value="">Work type?</option>${pwTypes().map(t => `<option value="${esc(t.code)}" ${t.code === e.pw_category ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : ''}
             <input class="hrs" data-i="${i}" data-k="hours" value="${esc(e.hours)}" inputmode="decimal" aria-label="Hours" placeholder="0">
             <button class="link" data-del="${i}" aria-label="Remove">✕</button>
@@ -192,7 +208,7 @@ function render() {
       return `<div class="tablewrap"><table><thead><tr><th>Name</th>${cols.map(([, l]) => `<th class="num">${l}</th>`).join('')}<th class="num">Total</th><th class="num">Per diem</th></tr></thead><tbody>
       ${A.crew.members.map(x => { const t = totals[x.clock_id]; return `<tr><td>${esc(x.name)}</td>${cols.map(([k]) => `<td class="num">${t[k] ? fmt(t[k]) : ''}</td>`).join('')}<td class="num"><b>${fmt(empTotal(x.clock_id))}</b></td><td class="num">${pdList(x.clock_id).length ? pdList(x.clock_id).length + ' d' : ''}</td></tr>`; }).join('')}
       </tbody></table></div>`; })()}
-    <p class="muted">Enter overtime only when it's paid as overtime that day. The office works out overtime over 40 hours.</p>
+    <p class="muted">Overtime is worked out automatically: hours past 40 in the week, counted day by day, become OT (or PW OT for prevailing wage hours).</p>
     ${problems.length ? `<div class="notice bad"><b>Fix before sending:</b><ul>${problems.slice(0, 12).map(p => '<li>' + esc(p) + '</li>').join('')}</ul></div>` : ''}
     ${A.msg ? `<div class="notice ${A.msg.ok ? 'good' : 'bad'}">${A.msg.html}</div>` : ''}
     <button class="primary" data-send="1" ${problems.length || A.sending ? 'disabled' : ''}>${A.sending ? 'Sending…' : 'Send week to the office'}</button>
