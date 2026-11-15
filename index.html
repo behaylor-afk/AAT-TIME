@@ -107,7 +107,7 @@ function weekTotals(clock) {
     const base = pw ? 'pw|' + cat : (e.hour_type === 'travel' ? 'travel' : 'regular');
     add(entered, base, h);
     const under = Math.max(0, Math.min(h, 4000 - run)); run += h;
-    add(calc, base, under); add(calc, pw ? 'pwot|' + cat : 'ot', h - under);
+    add(calc, pw ? base : 'regular', under); add(calc, pw ? 'pwot|' + cat : 'ot', h - under); // travel is paid as regular or OT
   });
   return { entered, calc };
 }
@@ -232,7 +232,7 @@ function render() {
     <h3>What you entered</h3>
     ${totalsTable(totals, 'entered', false)}
     <h3>Overtime worked out</h3>
-    <p class="muted">Hours are counted day by day. Past 40 in the week, regular and travel hours become OT, and prevailing wage hours become PW OT at the same work type's rate.</p>
+    <p class="muted">Hours are counted day by day. Past 40 in the week, regular and travel hours become OT (travel under 40 is counted in Regular), and prevailing wage hours become PW OT at the same work type's rate.</p>
     ${totalsTable(totals, 'calc', true)}
     ${problems.length ? `<div class="notice bad"><b>Fix before sending:</b><ul>${problems.slice(0, 12).map(p => '<li>' + esc(p) + '</li>').join('')}</ul></div>` : ''}
     ${A.msg ? `<div class="notice ${A.msg.ok ? 'good' : 'bad'}">${A.msg.html}</div>` : ''}
