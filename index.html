@@ -100,7 +100,7 @@ const OLD_TYPES = { overtime: 'Overtime', prevailing_ot: 'Prevailing wage OT' };
 function weekTotals(clock) {
   const entered = {}, calc = {}, add = (o, k, h) => { if (h) o[k] = (o[k] || 0) + h; };
   let run = 0;
-  (A.data.entries[clock] || []).map((e, i) => [e, i]).sort((a, b) => a[0].date.localeCompare(b[0].date) || a[1] - b[1]).forEach(([e]) => {
+  (A.data.entries[clock] || []).map((e, i) => [e, i]).sort((a, b) => a[0].date.localeCompare(b[0].date) || (a[0].hour_type === 'prevailing') - (b[0].hour_type === 'prevailing') || a[1] - b[1]).forEach(([e]) => {
     const h = hrsVal(e.hours) || 0; if (h <= 0) return;
     if (OLD_TYPES[e.hour_type]) { add(entered, 'old|' + e.hour_type, h); add(calc, 'old|' + e.hour_type, h); return; }
     const pw = e.hour_type === 'prevailing', cat = e.pw_category || '';
@@ -232,7 +232,7 @@ function render() {
     <h3>What you entered</h3>
     ${totalsTable(totals, 'entered', false)}
     <h3>Overtime worked out</h3>
-    <p class="muted">Hours are counted day by day. Past 40 in the week, regular and travel hours become OT (travel under 40 is counted in Regular), and prevailing wage hours become PW OT at the same work type's rate.</p>
+    <p class="muted">Hours are counted day by day, with regular and travel counted before prevailing wage hours each day. Past 40 in the week, regular and travel hours become OT (travel under 40 is counted in Regular), and prevailing wage hours become PW OT at the same work type's rate.</p>
     ${totalsTable(totals, 'calc', true)}
     ${problems.length ? `<div class="notice bad"><b>Fix before sending:</b><ul>${problems.slice(0, 12).map(p => '<li>' + esc(p) + '</li>').join('')}</ul></div>` : ''}
     ${A.msg ? `<div class="notice ${A.msg.ok ? 'good' : 'bad'}">${A.msg.html}</div>` : ''}
