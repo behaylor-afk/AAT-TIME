@@ -144,7 +144,6 @@ function checks() {
       byDay[e.date] = (byDay[e.date] || 0) + (h || 0);
     });
     Object.keys(byDay).forEach(d => { if (byDay[d] > 2400) problems.push(m.name + ', ' + md(d) + ': more than 24 hours.'); });
-    pdList(m.clock_id).forEach(d => { if (!byDay[d]) problems.push(m.name + ', ' + md(d) + ': per diem marked Yes with no hours.'); });
   });
   return problems;
 }
