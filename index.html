@@ -92,7 +92,7 @@ button.seg.on { background: var(--color-accent-bg); border-color: var(--color-ac
 <main id="main"><div class="card"><p class="muted">Loading…</p></div></main>
 <script>
 'use strict';
-/* Live job list: the Apps Script web app URL (ends in /exec). Leave blank to use config.json only. */
+/* Live job list and hours drop-off: the Apps Script web app URL (ends in /exec). */
 const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbwjA6fqoviO5PVky1y0g_JlmZVaJGu_IfhgH6s6_4SIrXhdCARlEa0cHbKN_7okWPYSzQ/exec';
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // Hours are entered as Regular, Travel or Prevailing wage. Overtime is worked out from hours over 40 in the week.
@@ -146,7 +146,9 @@ function hrsVal(v) { const s = String(v == null ? '' : v).trim(); if (s === '') 
 function fmt(h) { return (h / 100).toFixed(2); }
 
 const params = new URLSearchParams(location.search);
-const crewId = (params.get('crew') || location.hash.slice(1) || '').toLowerCase();
+// Each crew's link carries a private key (?k=...). The web app only returns that crew, and only accepts its hours with the key.
+const linkKey = (params.get('k') || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+let crewId = '';
 const A = { cfg: null, crew: null, week: weekStart(todayStr()), data: null, emp: null, msg: null };
 
 function storeKey(wk) { return 'aat-time:' + crewId + ':' + wk; }
@@ -249,7 +251,7 @@ function render() {
     ${CONFIG_URL ? `<button class="link" data-sendfile="1" ${problems.length ? 'disabled' : ''}>Send as a file instead</button>` : ''}
     ${A.data.submits ? `<p class="muted">Sent ${A.data.submits} time${A.data.submits > 1 ? 's' : ''} this week. Sending again replaces the earlier copy.</p>` : ''}
   </section>
-  <p class="muted" style="text-align:center">Job list ${A.source === 'live' ? 'live' : A.source === 'saved' ? 'from your last visit (no signal)' : 'from file'}, updated ${esc(new Date(A.cfg.generated_at).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</p>`;
+  <p class="muted" style="text-align:center">Job list ${A.source === 'live' ? 'live' : 'from your last visit (no signal)'}, updated ${esc(new Date(A.cfg.generated_at).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</p>`;
 }
 
 function buildFile() {
@@ -260,7 +262,7 @@ function buildFile() {
     if (h) entries.push({ clock_id: m.clock_id, date: e.date, project: e.project, hour_type: e.hour_type, pw_category: isPW(e.hour_type) ? e.pw_category : '', hours: h / 100 });
   }));
   const sid = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');
-  const file = { type: 'aat-crew-time', format: 1, crew: A.crew.id, manager: A.crew.manager, week: A.week, version: n, submission_id: sid, sent_at: new Date().toISOString(),
+  const file = { type: 'aat-crew-time', format: 1, crew: A.crew.id, key: linkKey, manager: A.crew.manager, week: A.week, version: n, submission_id: sid, sent_at: new Date().toISOString(),
     members: A.crew.members.map(m => m.clock_id), entries,
     per_diem: Object.fromEntries(A.crew.members.map(m => [m.clock_id, pdList(m.clock_id).filter(d => d >= A.week && d <= addDays(A.week, 6)).sort()])) };
   return { n, file, text: JSON.stringify(file), name: 'AAT_time_' + A.crew.id + '_' + A.week + '_v' + n + '.json' };
@@ -361,23 +363,25 @@ function loadJsonp(url, ms) {
 }
 const valid = (c) => c && Array.isArray(c.crews) && Array.isArray(c.projects) && c.crews.length;
 async function loadConfig() {
-  if (CONFIG_URL) {
-    try { const c = await loadJsonp(CONFIG_URL, 20000); if (valid(c)) { try { localStorage.setItem('aat-time:config', JSON.stringify(c)); } catch (e) {} return { cfg: c, source: 'live' }; } } catch (e) {}
-    try { const c = JSON.parse(localStorage.getItem('aat-time:config') || 'null'); if (valid(c)) return { cfg: c, source: 'saved' }; } catch (e) {}
-  }
-  const c = await (await fetch('config.json', { cache: 'no-store' })).json();
-  return { cfg: c, source: 'file' };
+  if (!linkKey) throw new Error(params.get('crew') ? 'This crew link has been replaced. Ask Brian for your new link.' : 'This link is missing its key. Use the link Brian sent you.');
+  const cacheKey = 'aat-time:config:' + linkKey;
+  let live = null;
+  try { live = await loadJsonp(CONFIG_URL + '?key=' + encodeURIComponent(linkKey), 20000); } catch (e) {}
+  if (live && live.error) { try { localStorage.removeItem(cacheKey); } catch (e) {} throw new Error(live.error); }
+  if (valid(live)) { try { localStorage.setItem(cacheKey, JSON.stringify(live)); } catch (e) {} return { cfg: live, source: 'live' }; }
+  try { const c = JSON.parse(localStorage.getItem(cacheKey) || 'null'); if (valid(c)) return { cfg: c, source: 'saved' }; } catch (e) {}
+  throw new Error('Could not load the crew list. Check your signal and reload the page.');
 }
 loadConfig().then(({ cfg, source }) => {
   A.cfg = cfg; A.source = source;
-  A.crew = (cfg.crews || []).find(c => c.id === crewId);
-  if (!A.crew) { $('#main').innerHTML = '<div class="card"><p>This link is missing its crew. Use the link Brian sent you.</p></div>'; return; }
+  A.crew = (cfg.crews || [])[0]; crewId = A.crew.id;
+  try { localStorage.removeItem('aat-time:config'); } catch (e) {} // old shared cache
   setWeek(A.week);
-}).catch(() => { $('#main').innerHTML = '<div class="card"><p>Could not load the crew list. Check your signal and reload the page.</p></div>'; });
+}).catch((e) => { $('#main').innerHTML = '<div class="card"><p>' + esc((e && e.message) || 'Could not load the crew list. Check your signal and reload the page.') + '</p></div>'; });
 // Keep the orange "entered" look in step while typing or choosing.
 document.addEventListener('input', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 document.addEventListener('change', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 </script>
-<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v17</p>
+<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v18</p>
 </body>
 </html>
