@@ -367,22 +367,31 @@ function renderCards() {
     const status = s.sent_at && !s.dirty ? `<span class="pill good">Sent ${esc(new Date(s.sent_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }))}</span>`
       : c.office && !s.dirty ? `<span class="pill good">Coded by ${c.office.by === 'crew' ? 'you' : 'office'}</span>` : '<span class="pill warn">Needs coding</span>';
     const haveRcpt = r || (o.receipt && !s.dirty) || (s.sent_at && s.had_receipt);
-    const ready = v.project && v.account && (r || o.receipt || s.had_receipt || (v.noRcpt && v.reason.trim()));
+    const ready = v.project && v.account && (r || o.receipt || s.had_receipt || (v.noRcpt && /[A-Za-z].*[A-Za-z].*[A-Za-z]/.test(v.reason)));
     return `<div class="charge ${s.sent_at && !s.dirty ? 'sent' : ''}" id="ch-${esc(c.id)}">
       <div class="top"><span>${esc(md(c.date))} · ${esc(c.merchant)}</span><b>${money2(c.amount)}</b></div>
       <div>${status}${c.amount < 0 ? ' <span class="muted">Refund or credit</span>' : ''}</div>
       <select data-cc="${esc(c.id)}" data-k="project" class="${v.project ? 'set' : ''}">${projOptions(v.project).replace('Choose job', 'Job…')}</select>
       <select data-cc="${esc(c.id)}" data-k="account" class="${v.account ? 'set' : ''}">${acctOptions(v.account)}</select>
-      <input type="text" data-cc="${esc(c.id)}" data-k="note" placeholder="What was it for? (optional)" value="${esc(v.note)}" class="${v.note ? 'set' : ''}">
+      <input type="text" data-cc="${esc(c.id)}" data-k="note" maxlength="120" placeholder="What was it for? (optional)" value="${esc(v.note)}" class="${v.note ? 'set' : ''}">
       <div class="rcpt">${r ? (r.type.startsWith('image/') ? `<img src="data:${esc(r.type)};base64,${r.data}" alt="Receipt">` : '') + `<span>Receipt ready: ${esc(r.name)}</span>` : haveRcpt ? '<span class="pill good">Receipt sent</span>' : ''}
         <label class="fbtn" style="cursor:pointer;display:inline-flex;align-items:center;min-height:32px;padding:0 .7rem;border:0.5px solid var(--color-border-strong);border-radius:var(--radius-md);font-size:.8rem">${r || haveRcpt ? 'Replace receipt' : 'Add receipt photo'}<input type="file" accept="image/*,application/pdf" data-rcpt="${esc(c.id)}" hidden></label>
         ${r || haveRcpt ? '' : `<label style="font-size:.8rem;display:flex;gap:.3rem;align-items:center"><input type="checkbox" data-cc="${esc(c.id)}" data-k="noRcpt" ${v.noRcpt ? 'checked' : ''}> No receipt</label>`}</div>
-      ${v.noRcpt && !r && !haveRcpt ? `<input type="text" data-cc="${esc(c.id)}" data-k="reason" placeholder="Why is there no receipt?" value="${esc(v.reason)}">` : ''}
+      ${v.noRcpt && !r && !haveRcpt ? `<input type="text" data-cc="${esc(c.id)}" data-k="reason" maxlength="120" placeholder="Why is there no receipt?" value="${esc(v.reason)}">` : ''}
       ${s.sent_at && !s.dirty ? '' : `<div class="row"><button class="primary" data-cardsend="${esc(c.id)}" ${ready && !A.cardBusy ? '' : 'disabled'}>${A.cardBusy === c.id ? 'Sending…' : 'Send to office'}</button>${ready ? '' : '<span class="muted">Pick the job and account, and add a receipt (or say why there is none).</span>'}</div>`}
       ${A.cardMsg && A.cardMsg.id === c.id ? `<p class="${A.cardMsg.ok ? 'muted' : ''}" style="${A.cardMsg.ok ? '' : 'color:var(--color-danger)'}">${A.cardMsg.html}</p>` : ''}
     </div>`;
   };
-  $('#main').innerHTML = list.length ? Object.values(groups).map(g => `<section class="card"><h2>${esc(g.holder || 'Card')} · card ${esc(g.card)}</h2>${g.items.map(item).join('')}</section>`).join('')
+  // Card filter: one card at a time keeps the list short; "All cards" shows everything.
+  const gl = Object.values(groups);
+  let pick = '';
+  try { pick = localStorage.getItem('aat-cardpick:' + crewId) || ''; } catch (e) {}
+  if (pick && !groups[pick]) pick = '';
+  const todo = (g) => g.items.filter(c => !(st[c.id] && st[c.id].sent_at && !st[c.id].dirty) && !c.office).length;
+  const filter = gl.length > 1 ? `<section class="card"><label class="f" style="display:grid;gap:.3rem;font-size:.8rem;font-weight:600">Show card
+      <select id="cardpick" style="font-size:.85rem;min-height:36px"><option value="">All cards (${list.length} items)</option>${gl.map(g => `<option value="${esc(g.card)}" ${g.card === pick ? 'selected' : ''}>${esc(g.holder || 'Card')} · ${esc(g.card)} (${g.items.length} item${g.items.length === 1 ? "" : "s"}${todo(g) ? ', ' + todo(g) + ' to code' : ''})</option>`).join('')}</select></label></section>` : '';
+  const shown = pick ? gl.filter(g => g.card === pick) : gl;
+  $('#main').innerHTML = list.length ? filter + shown.map(g => `<section class="card"><h2>${esc(g.holder || 'Card')} · card ${esc(g.card)}</h2>${g.items.map(item).join('')}</section>`).join('')
     + '<p class="muted" style="text-align:center">Items drop off this list once the office books them.</p>'
     : '<section class="card"><p>No card charges waiting for your crew. New ones show up here after the office imports the card activity.</p></section>';
 }
@@ -450,6 +459,8 @@ document.addEventListener('change', async (ev) => {
   if (t.dataset && t.dataset.cc) {
     const st = cardState(); const s = st[t.dataset.cc] = st[t.dataset.cc] || {};
     s[t.dataset.k] = t.type === 'checkbox' ? t.checked : t.value; s.dirty = true; saveCardState(st); render();
+  } else if (t.id === 'cardpick') {
+    try { localStorage.setItem('aat-cardpick:' + crewId, t.value); } catch (e) {} A.cardMsg = null; render(); window.scrollTo(0, 0);
   } else if (t.dataset && t.dataset.rcpt && t.files && t.files[0]) {
     const id = t.dataset.rcpt;
     try { RCPT[id] = await readReceipt(t.files[0]); const st = cardState(); st[id] = Object.assign({}, st[id] || {}, { dirty: true }); saveCardState(st); A.cardMsg = null; }
@@ -530,6 +541,6 @@ loadConfig().then(({ cfg, source }) => {
 document.addEventListener('input', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 document.addEventListener('change', (ev) => { const t = ev.target; if (t.closest && t.closest('.entry') && t.dataset.k) t.classList.toggle('set', t.dataset.k === 'hours' ? hrsVal(t.value) > 0 : !!t.value); }, true);
 </script>
-<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v20</p>
+<p class="muted" id="pagever" style="text-align:center;margin:0 0 1.5rem">Crew page v22</p>
 </body>
 </html>
